@@ -1,0 +1,10 @@
+# Local scratch material (proposal images, dataset copies)
+tmp/
+
+# Colab-exported bundle (downloaded from the notebook's final cell)
+auction_model_bundle.zip
+artifacts/
+
+# Python / notebook caches
+__pycache__/
+.ipynb_checkpoints/
