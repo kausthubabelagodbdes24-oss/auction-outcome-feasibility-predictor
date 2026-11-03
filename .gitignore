@@ -5,6 +5,9 @@ tmp/
 auction_model_bundle.zip
 artifacts/
 
-# Python / notebook caches
+# Python / notebook / test caches and local virtual environments
 __pycache__/
 .ipynb_checkpoints/
+.pytest_cache/
+.venv/
+venv/
