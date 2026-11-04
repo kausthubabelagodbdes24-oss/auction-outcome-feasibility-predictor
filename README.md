@@ -34,6 +34,18 @@ A small academic project for a CIE 3 presentation. It demonstrates two syllabus 
 
 The exported pipeline was serialized with **`scikit-learn==1.6.1`**. Artifact loading verifies the `auction_model.joblib` SHA-256 and requires `scikit-learn==1.6.1` before deserializing.
 
+### Windows launcher
+
+After placing `auction_model_bundle.zip` in the repository root, double-click [`RUN_APP.bat`](RUN_APP.bat), or run it from Command Prompt:
+
+```bat
+RUN_APP.bat
+```
+
+The launcher creates or reuses `.venv`, installs every dependency from `requirements.txt`, and starts the Streamlit application. Python 3 must already be installed and available through `py` or `python`.
+
+### Manual setup
+
 ```bash
 python -m venv .venv
 # Windows PowerShell: .\.venv\Scripts\Activate.ps1
@@ -71,7 +83,7 @@ pytest
 4. **Single pipeline**: show `ColumnTransformer` (`StandardScaler` + `OneHotEncoder`) inside one `Pipeline` so preprocessing is fitted on training data only.
 5. **Class-balanced RBF SVM**: point out `SVC(kernel="rbf", C=1.0, gamma="scale", class_weight="balanced")` handling class imbalance.
 6. **Held-out evaluation**: highlight the held-out MCC (`0.5725`) and confusion matrix on the 409 test records.
-7. **Start Streamlit**: run `streamlit run app.py`.
+7. **Start Streamlit**: on Windows, double-click `RUN_APP.bat`; otherwise run `streamlit run app.py` after completing the manual setup.
 8. **Enter one Auction Configuration**: choose values in the seven bounded select boxes and click **Predict Outcome Feasibility**.
 9. **Show the SVM estimate**: point out the single binary result (`Feasible model estimate` or `Infeasible model estimate`).
 10. **Explain training-set membership**: show whether the exact seven-value combination was *seen during training* (e.g., `0, 3, 1, 0, 60, 4, 0`) or is a *Novel Configuration* (e.g., held-out `0, 3, 2, 1, 77, 2, 0`), noting that novelty is independent of feasibility.
