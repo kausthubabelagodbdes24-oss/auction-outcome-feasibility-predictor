@@ -158,26 +158,34 @@ def test_streamlit_app_ui_contract():
 
     at = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py")).run()
     assert not at.exception
-    # Permanent scope statement visible before prediction.
-    assert any("not formal verification" in info.value for info in at.info)
-    # Exactly seven bounded configuration inputs in feature order.
+    # The interface contains only the seven bounded inputs and prediction action.
     assert len(at.selectbox) == 7
-    for sb, feature in zip(at.selectbox, EXPECTED_FEATURES):
-        assert feature in sb.label
+    assert [sb.label for sb in at.selectbox] == [
+        "Bidder 1 capacity",
+        "Bidder 2 capacity",
+        "Bidder 3 capacity",
+        "Bidder 4 capacity",
+        "Evaluated price",
+        "Product",
+        "Potential winner",
+    ]
+    assert len(at.button) == 1
+    assert not at.info
+    assert not at.caption
+    assert not at.dataframe
+    assert not at.markdown
 
-    # Submit a seen training configuration (0|3|1|0|60|4|0 -> Infeasible).
+    # Submit one configuration that produces an infeasible prediction.
     for sb, val in zip(at.selectbox, [0, 3, 1, 0, 60, 4, 0]):
         sb.select(val)
     at.button[0].click().run()
     assert not at.exception
-    assert any("Infeasible model estimate" in w.value for w in at.warning)
-    assert any(SEEN_MESSAGE in m.value for m in at.markdown)
+    assert any("Infeasible" in w.value for w in at.warning)
 
-    # Submit a novel configuration (0|3|2|1|77|2|0 -> Feasible).
+    # Submit one configuration that produces a feasible prediction.
     for sb, val in zip(at.selectbox, [0, 3, 2, 1, 77, 2, 0]):
         sb.select(val)
     at.button[0].click().run()
     assert not at.exception
-    assert any("Feasible model estimate" in s.value for s in at.success)
-    assert any(NOVEL_MESSAGE in m.value for m in at.markdown)
+    assert any("Feasible" in s.value for s in at.success)
 
