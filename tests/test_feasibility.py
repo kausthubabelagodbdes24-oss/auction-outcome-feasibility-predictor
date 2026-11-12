@@ -158,26 +158,52 @@ def test_streamlit_app_ui_contract():
 
     at = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py")).run()
     assert not at.exception
-    # Permanent scope statement visible before prediction.
-    assert any("not formal verification" in info.value for info in at.info)
     # Exactly seven bounded configuration inputs in feature order.
     assert len(at.selectbox) == 7
-    for sb, feature in zip(at.selectbox, EXPECTED_FEATURES):
-        assert feature in sb.label
+    assert [sb.label for sb in at.selectbox] == [
+        "Bidder 1 capacity",
+        "Bidder 2 capacity",
+        "Bidder 3 capacity",
+        "Bidder 4 capacity",
+        "Evaluated price",
+        "Product",
+        "Potential winner",
+    ]
+    assert at.button[0].label == "Predict outcome"
+    assert len(at.tabs) == 0
+    assert len(at.info) == 0
 
     # Submit a seen training configuration (0|3|1|0|60|4|0 -> Infeasible).
     for sb, val in zip(at.selectbox, [0, 3, 1, 0, 60, 4, 0]):
         sb.select(val)
     at.button[0].click().run()
     assert not at.exception
-    assert any("Infeasible model estimate" in w.value for w in at.warning)
-    assert any(SEEN_MESSAGE in m.value for m in at.markdown)
+    assert any(w.value == "Infeasible" for w in at.warning)
+    assert [tab.label for tab in at.tabs] == [
+        "Price sensitivity",
+        "Evaluation comparison",
+        "Training distribution",
+    ]
+    assert [metric.label for metric in at.metric[:4]] == [
+        "Outcome",
+        "Decision margin",
+        "Training membership",
+        "Held-out MCC",
+    ]
 
     # Submit a novel configuration (0|3|2|1|77|2|0 -> Feasible).
     for sb, val in zip(at.selectbox, [0, 3, 2, 1, 77, 2, 0]):
         sb.select(val)
     at.button[0].click().run()
     assert not at.exception
-    assert any("Feasible model estimate" in s.value for s in at.success)
-    assert any(NOVEL_MESSAGE in m.value for m in at.markdown)
+    assert any(s.value == "Feasible" for s in at.success)
+
+
+def test_streamlit_app_missing_bundle_renders_error(monkeypatch, tmp_path: Path):
+    from streamlit.testing.v1 import AppTest
+
+    monkeypatch.setenv("AUCTION_MODEL_BUNDLE", str(tmp_path / "does_not_exist.zip"))
+    at = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py")).run()
+    assert not at.exception
+    assert any("Model bundle not found" in error.value for error in at.error)
 

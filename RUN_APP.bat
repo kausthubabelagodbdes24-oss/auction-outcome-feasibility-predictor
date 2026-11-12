@@ -1,16 +1,22 @@
 @echo off
-setlocal
+setlocal EnableExtensions EnableDelayedExpansion
 
 cd /d "%~dp0"
 title Auction Outcome Feasibility Predictor
+set "SERVER_HEADLESS=false"
+if /i "%~1"=="--headless" set "SERVER_HEADLESS=true"
 
 echo ============================================================
 echo  Auction Outcome Feasibility Predictor - Windows Launcher
 echo ============================================================
 echo.
 
-if not exist "requirements.txt" (
-    echo ERROR: requirements.txt was not found in:
+if exist "requirements-app.txt" (
+    set "DEPENDENCY_FILE=requirements-app.txt"
+) else if exist "requirements.txt" (
+    set "DEPENDENCY_FILE=requirements.txt"
+) else (
+    echo ERROR: No dependency file was found in:
     echo        %CD%
     goto :failed
 )
@@ -47,24 +53,33 @@ if not exist ".venv\Scripts\python.exe" (
     )
 
     echo Creating the local Python environment...
-    %PYTHON_CMD% -m venv ".venv"
+    !PYTHON_CMD! -m venv ".venv"
     if errorlevel 1 (
         echo ERROR: Could not create the Python environment.
         goto :failed
     )
 )
 
-echo Installing or confirming required dependencies...
-".venv\Scripts\python.exe" -m pip install --quiet --disable-pip-version-check -r "requirements.txt"
-if errorlevel 1 (
-    echo ERROR: Dependency installation failed.
-    goto :failed
+if not exist ".venv\.auction-runtime-v1.0.0" (
+    echo Installing the compact application runtime...
+    ".venv\Scripts\python.exe" -m pip install --quiet --disable-pip-version-check --no-cache-dir -r "%DEPENDENCY_FILE%"
+    if errorlevel 1 (
+        echo ERROR: Dependency installation failed.
+        goto :failed
+    )
+    > ".venv\.auction-runtime-v1.0.0" echo ready
+    if errorlevel 1 (
+        echo ERROR: Could not finalize the runtime environment.
+        goto :failed
+    )
+) else (
+    echo Reusing the installed application runtime.
 )
 
 echo.
 echo Starting Streamlit. Press Ctrl+C in this window to stop the app.
 echo.
-".venv\Scripts\python.exe" -m streamlit run "app.py" --browser.gatherUsageStats false --server.showEmailPrompt false
+".venv\Scripts\python.exe" -m streamlit run "app.py" --server.headless %SERVER_HEADLESS% --browser.gatherUsageStats false --server.showEmailPrompt false
 exit /b %ERRORLEVEL%
 
 :failed

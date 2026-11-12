@@ -19,7 +19,6 @@ ASTRYX_ORANGE = "#EB6E00"
 ASTRYX_PURPLE = "#6B1EFD"
 ASTRYX_GREEN = "#0B991F"
 ASTRYX_DATA_NEUTRAL = "#8494A3"
-ASTRYX_BLUE_RAMP = ["#DBECFF", "#78BEFF", "#2694FE", "#004CBC", "#02165E"]
 
 ASTRYX_FONT_STACK = (
     "Figtree, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
@@ -65,7 +64,7 @@ def _apply_astryx_chrome(
     chart: alt.TopLevelMixin,
     tokens: dict[str, str],
     *,
-    height: int = 300,
+    height: int = 360,
     title: str | alt.TitleParams | None = None,
 ) -> alt.Chart | alt.LayerChart:
     """Apply shared Astryx Neutral chrome, typography, and transparent canvas."""
@@ -85,11 +84,11 @@ def _apply_astryx_chrome(
             ticks=False,
             labelFont=tokens["font"],
             titleFont=tokens["font"],
-            labelFontSize=12,
-            titleFontSize=12,
+            labelFontSize=13,
+            titleFontSize=13,
             titleFontWeight=500,
-            titlePadding=10,
-            labelPadding=6,
+            titlePadding=14,
+            labelPadding=8,
             labelColor=tokens["text_secondary"],
             titleColor=tokens["text_secondary"],
             gridColor=tokens["grid_color"],
@@ -97,8 +96,8 @@ def _apply_astryx_chrome(
         .configure_legend(
             labelFont=tokens["font"],
             titleFont=tokens["font"],
-            labelFontSize=12,
-            titleFontSize=12,
+            labelFontSize=13,
+            titleFontSize=13,
             titleFontWeight=600,
             labelColor=tokens["text_secondary"],
             titleColor=tokens["text_primary"],
@@ -107,11 +106,11 @@ def _apply_astryx_chrome(
         )
         .configure_title(
             font=tokens["font"],
-            fontSize=14,
+            fontSize=16,
             fontWeight=600,
             color=tokens["text_primary"],
             subtitleFont=tokens["font"],
-            subtitleFontSize=12,
+            subtitleFontSize=13,
             subtitleColor=tokens["text_secondary"],
             anchor="start",
         )
@@ -175,7 +174,7 @@ def build_price_sensitivity_chart(
         "price:Q",
         title="Property Price (property.price)",
         scale=alt.Scale(domain=[min_price - 0.5, max_price + 0.5], nice=False),
-        axis=alt.Axis(grid=False, format="d"),
+        axis=alt.Axis(grid=False, format="d", tickCount=16),
     )
     y_encoding = alt.Y(
         "decision_margin:Q",
@@ -203,8 +202,9 @@ def build_price_sensitivity_chart(
         )
     )
 
+    boundary_label_x = min_price + max((max_price - min_price) * 0.10, 2.0)
     boundary_df = pd.DataFrame(
-        [{"y": 0.0, "label": "Hyperplane Boundary (margin = 0)", "x": min_price}]
+        [{"y": 0.0, "label": "Hyperplane Boundary (margin = 0)", "x": boundary_label_x}]
     )
     boundary_rule = (
         alt.Chart(boundary_df)
@@ -244,19 +244,19 @@ def build_price_sensitivity_chart(
             y=y_encoding,
             color=alt.Color(
                 "outcome_label:N",
-                title="Model Outcome Estimate",
                 scale=alt.Scale(
                     domain=[_FEASIBLE_LABEL, _INFEASIBLE_LABEL],
                     range=[ASTRYX_GREEN, ASTRYX_BLUE],
                 ),
+                legend=None,
             ),
             shape=alt.Shape(
                 "novelty_label:N",
-                title="Training Coverage",
                 scale=alt.Scale(
                     domain=["In-domain (seen in training)", "Novel configuration"],
                     range=["circle", "diamond"],
                 ),
+                legend=None,
             ),
             tooltip=[
                 alt.Tooltip("price:Q", title="Property Price", format="d"),
@@ -331,120 +331,7 @@ def build_price_sensitivity_chart(
     return _apply_astryx_chrome(
         layered,
         tokens,
-        height=320,
-        title=alt.TitleParams(
-            text="Price Sensitivity Across Observed Domain",
-            subtitle="RBF SVM hyperplane distance as property.price varies with all other inputs fixed",
-        ),
-    )
-
-
-def build_confusion_matrix_chart(
-    metrics_dict: dict[str, Any],
-    theme_tokens: dict[str, Any] | None = None,
-) -> alt.Chart | alt.LayerChart:
-    """Build a 2x2 Astryx sequential-blue confusion matrix heatmap."""
-    cm = metrics_dict.get("confusion_matrix")
-    if not isinstance(cm, dict) or "matrix" not in cm:
-        raise ValueError("metrics_dict must contain confusion_matrix['matrix'].")
-
-    matrix = cm["matrix"]
-    if len(matrix) != 2 or any(len(row) != 2 for row in matrix):
-        raise ValueError("confusion_matrix['matrix'] must be a 2x2 list of counts.")
-
-    tokens = _resolve_tokens(theme_tokens)
-    labels = ["Infeasible (0)", "Feasible (1)"]
-    roles = [
-        ["True Negative", "False Positive"],
-        ["False Negative", "True Positive"],
-    ]
-
-    total = sum(int(matrix[r][c]) for r in range(2) for c in range(2))
-    total_safe = max(total, 1)
-    max_count = max(int(matrix[r][c]) for r in range(2) for c in range(2))
-    min_count = min(int(matrix[r][c]) for r in range(2) for c in range(2))
-    span = max(max_count - min_count, 1)
-
-    rows = []
-    for r_idx, actual_label in enumerate(labels):
-        row_total = max(sum(int(v) for v in matrix[r_idx]), 1)
-        for c_idx, pred_label in enumerate(labels):
-            count = int(matrix[r_idx][c_idx])
-            norm = (count - min_count) / span
-            rows.append(
-                {
-                    "actual": actual_label,
-                    "predicted": pred_label,
-                    "count": count,
-                    "share_total": count / total_safe,
-                    "share_row": count / row_total,
-                    "role": roles[r_idx][c_idx],
-                    "label_text": f"{count:,}\n({count / total_safe:.1%})",
-                    "text_color": "#FFFFFF" if norm >= 0.45 else "#000000",
-                }
-            )
-    df = pd.DataFrame(rows)
-
-    heatmap = (
-        alt.Chart(df)
-        .mark_rect(cornerRadius=6, stroke=tokens["surface_color"], strokeWidth=3)
-        .encode(
-            x=alt.X(
-                "predicted:N",
-                title="Predicted Model Outcome",
-                sort=labels,
-                axis=alt.Axis(grid=False, labelAngle=0),
-            ),
-            y=alt.Y(
-                "actual:N",
-                title="Actual Verification Result",
-                sort=labels,
-                axis=alt.Axis(grid=False),
-            ),
-            color=alt.Color(
-                "count:Q",
-                title="Test Records",
-                scale=alt.Scale(range=ASTRYX_BLUE_RAMP),
-                legend=None,
-            ),
-            tooltip=[
-                alt.Tooltip("role:N", title="Cell"),
-                alt.Tooltip("actual:N", title="Actual"),
-                alt.Tooltip("predicted:N", title="Predicted"),
-                alt.Tooltip("count:Q", title="Record Count", format=","),
-                alt.Tooltip("share_total:Q", title="Share of Test Set", format=".1%"),
-                alt.Tooltip("share_row:Q", title="Class Recall / Share", format=".1%"),
-            ],
-        )
-    )
-
-    text_overlay = (
-        alt.Chart(df)
-        .mark_text(
-            align="center",
-            baseline="middle",
-            font=tokens["font"],
-            fontSize=14,
-            fontWeight=600,
-            lineBreak="\n",
-        )
-        .encode(
-            x=alt.X("predicted:N", sort=labels),
-            y=alt.Y("actual:N", sort=labels),
-            text="label_text:N",
-            color=alt.Color("text_color:N", scale=None, legend=None),
-        )
-    )
-
-    layered = alt.layer(heatmap, text_overlay)
-    return _apply_astryx_chrome(
-        layered,
-        tokens,
-        height=280,
-        title=alt.TitleParams(
-            text="Held-Out Confusion Matrix",
-            subtitle=f"Stratified test partition (n = {total:,} records)",
-        ),
+        height=390,
     )
 
 
@@ -574,11 +461,7 @@ def build_metrics_comparison_chart(
     return _apply_astryx_chrome(
         layered,
         tokens,
-        height=280,
-        title=alt.TitleParams(
-            text="Held-Out Metrics vs. Always-Infeasible Baseline",
-            subtitle="MCC is the primary evaluation metric under class imbalance",
-        ),
+        height=340,
     )
 
 
@@ -644,7 +527,8 @@ def build_domain_distribution_chart(
     many_values = len(df) > 12
     x_axis = alt.Axis(
         grid=False,
-        labelAngle=-45 if many_values else 0,
+        labelAngle=0,
+        labelOverlap="greedy" if many_values else False,
     )
     y_max = int(df["count"].max())
     y_scale = alt.Scale(domain=[0, max(int(y_max * 1.14), y_max + 5)])
@@ -655,7 +539,7 @@ def build_domain_distribution_chart(
         .encode(
             x=alt.X(
                 "value_label:N",
-                title=f"Observed Values ({feature_name})",
+                title="Observed Value",
                 sort=sorted_labels,
                 axis=x_axis,
             ),
@@ -717,22 +601,16 @@ def build_domain_distribution_chart(
     return _apply_astryx_chrome(
         layered,
         tokens,
-        height=300,
-        title=alt.TitleParams(
-            text=f"Training Domain Distribution: {feature_name}",
-            subtitle=f"Observed frequencies across n = {total_records:,} training configurations",
-        ),
+        height=390,
     )
 
 
 __all__ = [
     "ASTRYX_BLUE",
-    "ASTRYX_BLUE_RAMP",
     "ASTRYX_DATA_NEUTRAL",
     "ASTRYX_GREEN",
     "ASTRYX_ORANGE",
     "ASTRYX_PURPLE",
-    "build_confusion_matrix_chart",
     "build_domain_distribution_chart",
     "build_metrics_comparison_chart",
     "build_price_sensitivity_chart",

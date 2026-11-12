@@ -3,7 +3,9 @@ tmp/
 
 # Colab-exported bundle (downloaded from the notebook's final cell)
 auction_model_bundle.zip
+auction_model_bundle/
 artifacts/
+dist/
 
 # Python / notebook / test caches and local virtual environments
 __pycache__/
