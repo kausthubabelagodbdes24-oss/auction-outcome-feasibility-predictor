@@ -465,6 +465,96 @@ def build_metrics_comparison_chart(
     )
 
 
+def build_cv_stability_chart(
+    repeated_cv: dict[str, Any],
+    theme_tokens: dict[str, Any] | None = None,
+) -> alt.Chart | alt.LayerChart:
+    """Build a mean ± standard-deviation chart for repeated CV metrics."""
+    metrics = repeated_cv.get("metrics")
+    if not isinstance(metrics, dict):
+        raise ValueError("repeated_cv must contain a metrics object.")
+
+    labels = {
+        "mcc": "MCC (Primary)",
+        "accuracy": "Accuracy",
+        "precision_feasible": "Feasible Precision",
+        "recall_feasible": "Feasible Recall",
+        "f1_feasible": "Feasible F1",
+    }
+    missing = [name for name in labels if name not in metrics]
+    if missing:
+        raise ValueError(f"repeated_cv metrics are missing: {missing}")
+
+    rows = []
+    for order, (name, label) in enumerate(labels.items(), start=1):
+        mean = float(metrics[name]["mean"])
+        std = float(metrics[name]["std"])
+        rows.append(
+            {
+                "metric": label,
+                "mean": mean,
+                "lower": max(-1.0 if name == "mcc" else 0.0, mean - std),
+                "upper": min(1.0, mean + std),
+                "mean_label": f"{mean:.4f} ± {std:.4f}",
+                "order": order,
+                "color": ASTRYX_PURPLE if name == "mcc" else ASTRYX_BLUE,
+            }
+        )
+
+    df = pd.DataFrame(rows)
+    tokens = _resolve_tokens(theme_tokens)
+    sort_order = [row["metric"] for row in rows]
+    x_scale = alt.Scale(domain=[-0.05, 1.05])
+
+    intervals = (
+        alt.Chart(df)
+        .mark_rule(strokeWidth=5, opacity=0.35)
+        .encode(
+            x=alt.X("lower:Q", title="Cross-validation score", scale=x_scale),
+            x2="upper:Q",
+            y=alt.Y("metric:N", title=None, sort=sort_order),
+            color=alt.Color("color:N", scale=None, legend=None),
+            tooltip=[
+                alt.Tooltip("metric:N", title="Metric"),
+                alt.Tooltip("mean:Q", title="Mean", format=".4f"),
+                alt.Tooltip("lower:Q", title="Mean - SD", format=".4f"),
+                alt.Tooltip("upper:Q", title="Mean + SD", format=".4f"),
+            ],
+        )
+    )
+    points = (
+        alt.Chart(df)
+        .mark_point(filled=True, size=150, stroke=tokens["surface_color"], strokeWidth=2)
+        .encode(
+            x=alt.X("mean:Q", scale=x_scale),
+            y=alt.Y("metric:N", sort=sort_order),
+            color=alt.Color("color:N", scale=None, legend=None),
+        )
+    )
+    values = (
+        alt.Chart(df)
+        .mark_text(
+            align="left",
+            baseline="middle",
+            dx=12,
+            font=tokens["font"],
+            fontSize=13,
+            fontWeight=600,
+            color=tokens["text_primary"],
+        )
+        .encode(
+            x=alt.X("upper:Q", scale=x_scale),
+            y=alt.Y("metric:N", sort=sort_order),
+            text="mean_label:N",
+        )
+    )
+    return _apply_astryx_chrome(
+        alt.layer(intervals, points, values),
+        tokens,
+        height=300,
+    )
+
+
 def build_domain_distribution_chart(
     feature_df: pd.DataFrame,
     feature_name: str,
@@ -612,6 +702,7 @@ __all__ = [
     "ASTRYX_ORANGE",
     "ASTRYX_PURPLE",
     "build_domain_distribution_chart",
+    "build_cv_stability_chart",
     "build_metrics_comparison_chart",
     "build_price_sensitivity_chart",
 ]

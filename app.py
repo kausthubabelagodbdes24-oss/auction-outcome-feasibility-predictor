@@ -8,6 +8,7 @@ from typing import Any
 import streamlit as st
 
 from charts import (
+    build_cv_stability_chart,
     build_domain_distribution_chart,
     build_metrics_comparison_chart,
     build_price_sensitivity_chart,
@@ -225,11 +226,18 @@ def _render_analysis_dashboard(
     else:
         st.warning("Infeasible")
 
-    summary_columns = st.columns(4, gap="medium")
+    repeated_cv = metrics_payload.get("repeated_cross_validation")
+    summary_count = 5 if repeated_cv else 4
+    summary_columns = st.columns(summary_count, gap="medium")
     summary_columns[0].metric("Outcome", "Feasible" if prediction == 1 else "Infeasible")
     summary_columns[1].metric("Decision margin", f"{margin:+.4f}")
     summary_columns[2].metric("Training membership", "Seen" if was_seen else "Novel")
-    summary_columns[3].metric("Held-out MCC", f"{metrics['mcc']:.4f}")
+    if repeated_cv:
+        cv_mcc = repeated_cv["metrics"]["mcc"]
+        summary_columns[3].metric("CV MCC", f"{cv_mcc['mean']:.4f} ± {cv_mcc['std']:.4f}")
+        summary_columns[4].metric("Held-out MCC", f"{metrics['mcc']:.4f}")
+    else:
+        summary_columns[3].metric("Held-out MCC", f"{metrics['mcc']:.4f}")
 
     st.divider()
     st.subheader("Model analysis")
@@ -274,6 +282,39 @@ def _render_analysis_dashboard(
                 )
 
     with evaluation_tab:
+        model_selection = metrics_payload.get("model_selection")
+        if repeated_cv and model_selection:
+            with st.container(border=True):
+                st.markdown("### Repeated cross-validation stability")
+                st.caption(
+                    f"The selected SVM configuration was evaluated with "
+                    f"{repeated_cv['splits']}-fold stratified cross-validation repeated "
+                    f"{repeated_cv['repeats']} times. Points show the mean; horizontal intervals "
+                    "show ±1 standard deviation across the repeated folds."
+                )
+                selection_columns = st.columns(4, gap="medium")
+                selection_columns[0].metric("Selected C", model_selection["best_params"]["C"])
+                selection_columns[1].metric(
+                    "Selected gamma", model_selection["best_params"]["gamma"]
+                )
+                selection_columns[2].metric(
+                    "Search candidates", model_selection["candidate_count"]
+                )
+                selection_columns[3].metric(
+                    "Search CV MCC", f"{model_selection['best_mean_cv_mcc']:.4f}"
+                )
+                st.altair_chart(
+                    build_cv_stability_chart(repeated_cv),
+                    width="stretch",
+                    theme=None,
+                    key="cv_stability_chart",
+                )
+        else:
+            st.caption(
+                "Repeated cross-validation results will appear here after the updated Colab "
+                "notebook regenerates auction_model_bundle.zip."
+            )
+
         with st.container(border=True):
             st.markdown("### Held-out metric comparison")
             st.caption(

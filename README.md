@@ -26,8 +26,10 @@ A small academic project for a CIE 3 presentation. It demonstrates two syllabus 
 | Target | `verification.result` (`1` = feasible, `0` = infeasible) |
 | Excluded | `verification.time` (model-checker runtime, never an input) |
 | Split | Stratified 80/20 (`1,634` train / `409` held-out test), `random_state=42` |
-| Model | `Pipeline(ColumnTransformer → SVC(kernel="rbf", C=1, gamma="scale", class_weight="balanced", probability=False))` |
-| Evaluation | Held-out MCC (`0.5725`), accuracy (`0.8557`), positive-class precision/recall/F1, confusion matrix |
+| Selection | 16 `C`/`gamma` combinations, selected by MCC with five-fold stratified CV on the training partition only |
+| Model | `Pipeline(ColumnTransformer → SVC(kernel="rbf", C=100, gamma=0.1, class_weight="balanced", probability=False))` |
+| Stability | Five-fold CV repeated five times: MCC `0.6843 ± 0.0582`, accuracy `0.9257 ± 0.0140` |
+| Final evaluation | Untouched-test MCC `0.7174`, accuracy `0.9291`, feasible recall `0.8462`, confusion matrix |
 | Bundle files | `auction_model.joblib`, `model_metadata.json`, `metrics.json`, `confusion_matrix.png` |
 
 ## 2. Local environment setup and startup
@@ -83,8 +85,8 @@ pytest
 2. **Inputs vs. target**: point out the seven configuration inputs (`process.b1–b4.capacity`, `property.price`, `property.product`, `property.winner`) and the binary target `verification.result` (`verification.time` excluded).
 3. **Train/test split**: point out the stratified 80/20 split (`random_state=42`: 1,634 training, 409 held-out test records).
 4. **Single pipeline**: show `ColumnTransformer` (`StandardScaler` + `OneHotEncoder`) inside one `Pipeline` so preprocessing is fitted on training data only.
-5. **Class-balanced RBF SVM**: point out `SVC(kernel="rbf", C=1.0, gamma="scale", class_weight="balanced")` handling class imbalance.
-6. **Held-out evaluation**: highlight the held-out MCC (`0.5725`) and confusion matrix on the 409 test records.
+5. **Bounded model selection**: show the 16 `C`/`gamma` candidates and five-fold training-only search, which selects `C=100` and `gamma=0.1` by MCC.
+6. **Stability and final evaluation**: highlight repeated-CV MCC (`0.6843 ± 0.0582`) and untouched-test MCC (`0.7174`) with the confusion matrix on 409 held-out records.
 7. **Start Streamlit**: on Windows, double-click `RUN_APP.bat`; otherwise run `streamlit run app.py` after completing the manual setup.
 8. **Enter one Auction Configuration**: choose values in the seven bounded select boxes and click **Predict outcome**.
 9. **Show the SVM estimate**: point out the single binary result (`Feasible` or `Infeasible`). After prediction, use the revealed tabs to present price sensitivity, held-out evaluation versus the always-infeasible baseline, and the selected value's training distribution.

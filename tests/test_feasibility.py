@@ -142,7 +142,7 @@ def test_novelty_is_independent_of_predicted_feasibility(artifact, training_keys
     # Both novel (held-out) configurations below are in-domain and unseen in training,
     # yet receive opposite binary SVM estimates; checking novelty never alters predict_outcome.
     novel_infeasible = validate_configuration(_config_from_key("1|3|2|0|70|2|0"), artifact.metadata)
-    novel_feasible = validate_configuration(_config_from_key("0|3|2|1|77|2|0"), artifact.metadata)
+    novel_feasible = validate_configuration(_config_from_key("0|0|1|0|59|6|2"), artifact.metadata)
 
     pred_before_0 = predict_outcome(artifact.model, novel_infeasible)
     pred_before_1 = predict_outcome(artifact.model, novel_feasible)
@@ -184,15 +184,12 @@ def test_streamlit_app_ui_contract():
         "Evaluation comparison",
         "Training distribution",
     ]
-    assert [metric.label for metric in at.metric[:4]] == [
-        "Outcome",
-        "Decision margin",
-        "Training membership",
-        "Held-out MCC",
-    ]
+    metric_labels = [metric.label for metric in at.metric]
+    assert metric_labels[:3] == ["Outcome", "Decision margin", "Training membership"]
+    assert "Held-out MCC" in metric_labels
 
-    # Submit a novel configuration (0|3|2|1|77|2|0 -> Feasible).
-    for sb, val in zip(at.selectbox, [0, 3, 2, 1, 77, 2, 0]):
+    # Submit a novel configuration (0|0|1|0|59|6|2 -> Feasible).
+    for sb, val in zip(at.selectbox, [0, 0, 1, 0, 59, 6, 2]):
         sb.select(val)
     at.button[0].click().run()
     assert not at.exception
